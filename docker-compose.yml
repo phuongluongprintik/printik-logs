@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  # Grafana Loki - Log aggregation system
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: loki
+    ports:
+      - '3100:3100'
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ./loki-config.yaml:/etc/loki/local-config.yaml
+      - loki_data:/loki
+    networks:
+      - loki_network
+    restart: unless-stopped
+    user: '10001:10001'
+
+  # Promtail - Log collection agent
+  promtail:
+    image: grafana/promtail:2.9.0
+    container_name: promtail
+    volumes:
+      - ./promtail-config.yaml:/etc/promtail/config.yml
+      - ../printik-be/logs:/app/logs
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - loki_network
+    restart: unless-stopped
+    depends_on:
+      - loki
+
+  # Grafana - Visualization and query interface
+  grafana:
+    image: grafana/grafana:10.0.0
+    container_name: grafana
+    ports:
+      - '3001:3000'
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - grafana_data:/var/lib/grafana
+    networks:
+      - loki_network
+    restart: unless-stopped
+    depends_on:
+      - loki
+
+networks:
+  loki_network:
+    driver: bridge
+
+volumes:
+  loki_data:
+  grafana_data:
